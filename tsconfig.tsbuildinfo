@@ -1,0 +1,1 @@
+{"version":"7.0.2","root":["./src/config/payment.ts","./src/data/products.ts","./src/types/product.ts"],"packageJsons":["./package.json"]}
