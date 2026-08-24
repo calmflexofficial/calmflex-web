@@ -32,7 +32,7 @@ document.querySelectorAll('.filter-button').forEach((button) => {
     document.querySelector('.filter-button.active').classList.remove('active');
     button.classList.add('active');
     const category = button.dataset.filter;
-    document.querySelectorAll('.product-card').forEach((card, index) => { card.hidden = category !== 'all' && ({ 0: 'wellness', 1: 'beauty', 2: 'wellness', 3: 'fitness' })[index] !== category; });
+    document.querySelectorAll('.product-card').forEach((card) => { card.hidden = category !== 'all' && card.dataset.category !== category; });
   });
 });
 
