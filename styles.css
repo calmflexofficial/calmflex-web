@@ -137,6 +137,14 @@ button, input, select { font: inherit; }
   max-width: 1320px;
   min-height: 640px;
   padding: 28px 5vw 0;
+  position: relative;
+}
+.hero > *:not(.particles) { position: relative; z-index: 1; }
+.particles {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
 }
 .hero-copy { align-self: center; padding: 36px 8% 70px 0; }
 .eyebrow {
@@ -186,6 +194,47 @@ button, input, select { font: inherit; }
   color: #fff;
 }
 .button-dark:hover { transform: translateY(-2px); }
+.specular-button {
+  --pointer-x: 50%;
+  --pointer-y: 0%;
+  align-items: center;
+  background:
+    radial-gradient(circle at var(--pointer-x) var(--pointer-y), rgba(255, 255, 255, calc(var(--specular-intensity) * 0.34)), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--specular-tint), #12383d 70%), var(--specular-tint) 55%, #6db544);
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 12px 28px rgba(13, 138, 150, 0.28);
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+}
+.specular-button::before {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: inherit;
+  content: '';
+  inset: 2px;
+  pointer-events: none;
+  position: absolute;
+}
+.specular-button::after {
+  animation: specular-sweep 4.8s ease-in-out infinite;
+  background: linear-gradient(110deg, transparent 32%, rgba(255, 255, 255, 0.45), transparent 68%);
+  content: '';
+  inset: 0;
+  opacity: 0.55;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-125%);
+}
+.specular-button:hover { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 16px 32px rgba(13, 138, 150, 0.32); transform: translateY(-2px); }
+.specular-button span { position: relative; z-index: 1; }
+@keyframes specular-sweep {
+  0%, 70%, 100% { transform: translateX(-125%); }
+  88% { transform: translateX(125%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .specular-button::after { animation: none; }
+}
 .button-outline {
   background: transparent;
   border-color: var(--line);
@@ -842,6 +891,7 @@ footer p { color: rgba(255,255,255,0.82); font-size: 13px; margin: 0; }
   .hero-copy { padding: 48px 0 28px; }
   .hero h1 { font-size: 48px; }
   .hero-art { border-radius: 32px; min-height: 380px; }
+  .particles { opacity: 0.7; }
   .hero-logo { height: 240px; width: 240px; }
   .trust-bar {
     grid-template-columns: 1fr 1fr;

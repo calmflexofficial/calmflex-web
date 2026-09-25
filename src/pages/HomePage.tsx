@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import ProductCard from '../components/ProductCard';
+import Particles from '../components/Particles';
+import SpecularButton from '../components/SpecularButton';
 import { featuredProducts } from '../data/products';
 
 const logo = '/assets/calmflex-logo.jpg';
@@ -8,6 +10,7 @@ export default function HomePage() {
   return (
     <main>
       <section className="hero">
+        <Particles count={200} speed={1} interactive />
         <div className="hero-copy">
           <p className="eyebrow">Relax · Revive · Renew</p>
           <h1>
@@ -20,9 +23,9 @@ export default function HomePage() {
             you are ready.
           </p>
           <div className="hero-actions">
-            <Link className="button button-dark" to="/products">
-              Explore products <span>↗</span>
-            </Link>
+            <SpecularButton type="button" onClick={() => { window.location.href = '/products'; }}>
+              Explore products
+            </SpecularButton>
             <Link className="text-link" to="/why-calmflex">
               Why CalmFlex <span>→</span>
             </Link>
