@@ -1,6 +1,6 @@
 export const paymentConfig = {
   provider: 'razorpay',
-  publicKey: 'rzp_test_REPLACE_ME',
+  publicKey: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
   createOrderEndpoint: '/api/payments/create-order',
   verifyPaymentEndpoint: '/api/payments/verify'
 } as const;

@@ -19,6 +19,8 @@ npm install
 npm run dev
 ```
 
+Create a production bundle with `npm run build`, then deploy the generated `dist/` directory to a host that supports SPA fallback to `index.html`.
+
 ## Structure
 
 ```text
@@ -43,4 +45,6 @@ docs/                   Integration and launch notes
 
 ## Payments
 
-Cash on Delivery is available in the frontend now. Online UPI/card checkout is prepared for Razorpay, but it requires a backend implementation for secure order creation and signature verification. Follow [docs/payment-integration.md](docs/payment-integration.md) before enabling live payments. Never put `RAZORPAY_KEY_SECRET` in browser code.
+Cash on Delivery is available in the frontend now. Online UPI/card checkout is intentionally disabled until a backend implements secure order creation and signature verification. Follow [docs/payment-integration.md](docs/payment-integration.md) before enabling live payments. Never put `RAZORPAY_KEY_SECRET` in browser code.
+
+The storefront is not ready for a real-money launch until that backend is deployed and the frontend has a live `VITE_RAZORPAY_KEY_ID` value. The current frontend can be published as a catalog with COD only.

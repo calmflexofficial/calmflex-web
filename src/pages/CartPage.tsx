@@ -17,6 +17,16 @@ export default function CartPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const customer = Object.fromEntries(formData.entries());
+    const phone = String(customer.phone || '').replace(/\D/g, '');
+    const pin = String(customer.pin || '').replace(/\D/g, '');
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      setPaymentMessage('Enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+    if (!/^\d{6}$/.test(pin)) {
+      setPaymentMessage('Enter a valid 6-digit PIN code.');
+      return;
+    }
     if (formData.get('payment') === 'cod') {
       clear();
       setPlaced(true);
@@ -26,7 +36,7 @@ export default function CartPage() {
       await startRazorpayCheckout({
         customer,
         cart: items,
-        total: subtotal * 100,
+        total: (subtotal + shipping) * 100,
         onSuccess: () => {
           clear();
           setPlaced(true);
@@ -126,7 +136,7 @@ export default function CartPage() {
             </label>
             <label>
               Mobile number
-              <input required name="phone" inputMode="tel" placeholder="10-digit number" />
+              <input required name="phone" inputMode="tel" pattern="[6-9][0-9]{9}" maxLength={10} placeholder="10-digit number" />
             </label>
             <label className="full-field">
               Email address
@@ -142,7 +152,7 @@ export default function CartPage() {
             </label>
             <label>
               PIN code
-              <input required name="pin" inputMode="numeric" maxLength={6} placeholder="6-digit PIN" />
+              <input required name="pin" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="6-digit PIN" />
             </label>
             <div className="payment-box full-field">
               <p>Payment method</p>
