@@ -1,5 +1,3 @@
-tsconfig.json           Strict TypeScript configuration
-docs/                   Integration and launch notes
 # CalmFlex storefront and API
 
 CalmFlex is organized as two npm workspace projects: a React, TypeScript and Vite storefront in `frontend/`, and an Express API with SQLite order persistence in `backend/`.

@@ -1,15 +1,19 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import Database from 'better-sqlite3';
-import { fileURLToPath } from 'node:url';
+import fs from "node:fs";
+import path from "node:path";
+import Database from "better-sqlite3";
+import { fileURLToPath } from "node:url";
 
 const backendDirectory = path.dirname(fileURLToPath(import.meta.url));
 
-export function openDatabase(databasePath = process.env.DATABASE_PATH || path.join(backendDirectory, 'data', 'orders.sqlite')) {
-  if (databasePath !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(databasePath)), { recursive: true });
+export function openDatabase(
+  databasePath = process.env.DATABASE_PATH ||
+    path.join(backendDirectory, "data", "orders.sqlite"),
+) {
+  if (databasePath !== ":memory:")
+    fs.mkdirSync(path.dirname(path.resolve(databasePath)), { recursive: true });
   const database = new Database(databasePath);
-  database.pragma('journal_mode = WAL');
-  database.pragma('foreign_keys = ON');
+  database.pragma("journal_mode = WAL");
+  database.pragma("foreign_keys = ON");
   database.exec(`
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
@@ -30,24 +34,31 @@ export function openDatabase(databasePath = process.env.DATABASE_PATH || path.jo
   return database;
 }
 
-export function saveOrder(database, { id, status, paymentMethod, customer, pricing, gatewayOrderId = null }) {
+export function saveOrder(
+  database,
+  { id, status, paymentMethod, customer, pricing, gatewayOrderId = null },
+) {
   const timestamp = new Date().toISOString();
-  database.prepare(`
+  database
+    .prepare(
+      `
     INSERT INTO orders (
       id, status, payment_method, customer_json, items_json,
       subtotal_paise, shipping_paise, total_paise, gateway_order_id, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id,
-    status,
-    paymentMethod,
-    JSON.stringify(customer),
-    JSON.stringify(pricing.lines),
-    pricing.subtotalPaise,
-    pricing.shippingPaise,
-    pricing.totalPaise,
-    gatewayOrderId,
-    timestamp,
-    timestamp
-  );
+  `,
+    )
+    .run(
+      id,
+      status,
+      paymentMethod,
+      JSON.stringify(customer),
+      JSON.stringify(pricing.lines),
+      pricing.subtotalPaise,
+      pricing.shippingPaise,
+      pricing.totalPaise,
+      gatewayOrderId,
+      timestamp,
+      timestamp,
+    );
 }
