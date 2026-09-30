@@ -17,12 +17,19 @@ const loadRazorpay = () =>
 
 interface CheckoutArgs {
   customer: Record<string, FormDataEntryValue>;
-  cart: unknown;
-  total: number;
-  onSuccess: (paymentResponse?: unknown, order?: unknown) => void | Promise<void>;
+  cart: Array<{ slug: string; quantity: number }>;
+  onSuccess: (paymentResponse: unknown, order: PaymentOrder) => void | Promise<void>;
+  onError: (message: string) => void;
 }
 
-export async function startRazorpayCheckout({ customer, cart, total, onSuccess }: CheckoutArgs) {
+interface PaymentOrder {
+  id: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+}
+
+export async function startRazorpayCheckout({ customer, cart, onSuccess, onError }: CheckoutArgs) {
   if (!isConfigured()) {
     throw new Error('Online payments are not configured yet. Choose Cash on Delivery or add the Razorpay public key.');
   }
@@ -32,11 +39,12 @@ export async function startRazorpayCheckout({ customer, cart, total, onSuccess }
   const response = await fetch(paymentConfig.createOrderEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customer, cart, amount: total })
+    body: JSON.stringify({ customer, items: cart })
   });
-  if (!response.ok) throw new Error('Unable to create a secure payment order. Please try again.');
+  const orderResult = await response.json();
+  if (!response.ok) throw new Error(orderResult.error || 'Unable to create a secure payment order. Please try again.');
 
-  const order = await response.json();
+  const order = orderResult as PaymentOrder;
   const Razorpay = window.Razorpay;
   if (!Razorpay) throw new Error('Razorpay checkout could not load. Check your connection and try again.');
 
@@ -49,15 +57,20 @@ export async function startRazorpayCheckout({ customer, cart, total, onSuccess }
     order_id: order.id,
     prefill: { name: customer.name, email: customer.email, contact: customer.phone },
     handler: async (paymentResponse: unknown) => {
-      const verification = await fetch(paymentConfig.verifyPaymentEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentResponse, order, customer, cart })
-      });
-      if (!verification.ok) {
-        throw new Error('Payment was received but could not be verified. Please contact support before trying again.');
+      try {
+        const verification = await fetch(paymentConfig.verifyPaymentEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentResponse, orderId: order.orderId })
+        });
+        const result = await verification.json();
+        if (!verification.ok) {
+          throw new Error(result.error || 'Payment was received but could not be verified. Please contact support before trying again.');
+        }
+        await onSuccess(paymentResponse, order);
+      } catch (error) {
+        onError(error instanceof Error ? error.message : 'Payment could not be verified. Contact CalmFlex support before retrying.');
       }
-      await onSuccess(paymentResponse, order);
     },
     theme: { color: '#0d8a96' }
   }).open();

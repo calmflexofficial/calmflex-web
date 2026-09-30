@@ -1,23 +1,17 @@
 {
-  "name": "calmflex-web",
+  "name": "calmflex-workspace",
   "private": true,
-  "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "react": "latest",
-    "react-dom": "latest",
-    "react-router-dom": "^7.18.4",
-    "vite": "^5.4.21"
-  },
-  "devDependencies": {
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "typescript": "^5.7.2"
+    "dev": "node scripts/dev.js",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:backend": "npm run dev --workspace backend",
+    "build": "npm run build --workspace frontend",
+    "test": "npm test --workspace backend",
+    "start": "npm start --workspace backend"
   }
 }

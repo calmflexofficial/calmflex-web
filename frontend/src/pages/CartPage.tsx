@@ -2,12 +2,15 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { money } from '../data/products';
+import { paymentConfig } from '../config/payment';
+import { apiUrl } from '../config/api';
 import { startRazorpayCheckout } from '../services/razorpay';
 
 export default function CartPage() {
   const { items, changeQuantity, remove, clear } = useCart();
   const [checkout, setCheckout] = useState(false);
   const [placed, setPlaced] = useState(false);
+  const [orderReference, setOrderReference] = useState('');
   const [paymentMessage, setPaymentMessage] = useState('');
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -28,19 +31,36 @@ export default function CartPage() {
       return;
     }
     if (formData.get('payment') === 'cod') {
-      clear();
-      setPlaced(true);
+      try {
+        const response = await fetch(apiUrl('/api/orders'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer,
+            items: items.map(({ slug, quantity }) => ({ slug, quantity })),
+            paymentMethod: 'cod'
+          })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Unable to place your order. Please try again.');
+        setOrderReference(result.orderId);
+        clear();
+        setPlaced(true);
+      } catch (error) {
+        setPaymentMessage(error instanceof Error ? error.message : 'Unable to place your order.');
+      }
       return;
     }
     try {
       await startRazorpayCheckout({
         customer,
-        cart: items,
-        total: (subtotal + shipping) * 100,
-        onSuccess: () => {
+        cart: items.map(({ slug, quantity }) => ({ slug, quantity })),
+        onSuccess: (_paymentResponse, order) => {
+          setOrderReference(order.orderId);
           clear();
           setPlaced(true);
-        }
+        },
+        onError: setPaymentMessage
       });
     } catch (error) {
       setPaymentMessage(error instanceof Error ? error.message : 'Payment could not start.');
@@ -53,6 +73,7 @@ export default function CartPage() {
         <p className="eyebrow">Order received</p>
         <h1>Thank you.</h1>
         <p className="hero-text">Your CalmFlex order has been placed. We will share tracking details shortly.</p>
+        {orderReference && <p className="shipping-note">Order reference: {orderReference}</p>}
         <Link className="button button-dark" to="/products">
           Continue shopping <span>→</span>
         </Link>
@@ -157,11 +178,11 @@ export default function CartPage() {
             <div className="payment-box full-field">
               <p>Payment method</p>
               <div className="payment-options">
-                <label>
-                  <input type="radio" name="payment" value="upi" defaultChecked /> UPI
+                <label title={paymentConfig.publicKey ? undefined : 'Online payments are not configured yet'}>
+                  <input type="radio" name="payment" value="upi" disabled={!paymentConfig.publicKey} defaultChecked={Boolean(paymentConfig.publicKey)} /> UPI
                 </label>
-                <label>
-                  <input type="radio" name="payment" value="card" /> Card
+                <label title={paymentConfig.publicKey ? undefined : 'Online payments are not configured yet'}>
+                  <input type="radio" name="payment" value="card" disabled={!paymentConfig.publicKey} /> Card
                 </label>
                 <label>
                   <input type="radio" name="payment" value="cod" /> Cash on delivery
