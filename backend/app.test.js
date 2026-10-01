@@ -68,7 +68,10 @@ test("guest COD checkout is rejected", async (t) => {
     },
   );
   assert.equal(response.status, 401);
-  assert.equal(database.prepare("SELECT COUNT(*) AS count FROM orders").get().count, 0);
+  assert.equal(
+    database.prepare("SELECT COUNT(*) AS count FROM orders").get().count,
+    0,
+  );
 });
 
 test("rejects invalid products and customer data", async (t) => {
@@ -199,7 +202,11 @@ async function signupAndGetCookie(baseUrl) {
   const response = await fetch(`${baseUrl}/api/auth/signup`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name: customer.name, email: customer.email, password: "long-test-password" }),
+    body: JSON.stringify({
+      name: customer.name,
+      email: customer.email,
+      password: "long-test-password",
+    }),
   });
   assert.equal(response.status, 201);
   return response.headers.get("set-cookie").split(";")[0];

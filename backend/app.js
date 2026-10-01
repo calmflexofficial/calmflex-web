@@ -205,11 +205,9 @@ export function createApp({ database, razorpay = null, env = process.env }) {
         .status(400)
         .json({ error: "Password must be between 10 and 256 characters." });
     if (findUserByEmail(database, email))
-      return response
-        .status(409)
-        .json({
-          error: "An account with that email already exists. Try logging in.",
-        });
+      return response.status(409).json({
+        error: "An account with that email already exists. Try logging in.",
+      });
 
     const user = { id: randomUUID(), name, email };
     try {
@@ -219,11 +217,9 @@ export function createApp({ database, razorpay = null, env = process.env }) {
       });
     } catch (error) {
       if (error.code === "SQLITE_CONSTRAINT_UNIQUE")
-        return response
-          .status(409)
-          .json({
-            error: "An account with that email already exists. Try logging in.",
-          });
+        return response.status(409).json({
+          error: "An account with that email already exists. Try logging in.",
+        });
       throw error;
     }
     const token = randomBytes(32).toString("base64url");
@@ -375,11 +371,9 @@ export function createApp({ database, razorpay = null, env = process.env }) {
         });
       } catch (error) {
         request.log?.error(error);
-        return response
-          .status(502)
-          .json({
-            error: "Could not create a payment order. Please try again.",
-          });
+        return response.status(502).json({
+          error: "Could not create a payment order. Please try again.",
+        });
       }
     },
   );
@@ -406,7 +400,9 @@ export function createApp({ database, razorpay = null, env = process.env }) {
       });
     }
     if (order.user_id !== request.user.id) {
-      return response.status(403).json({ error: "This payment order belongs to another account." });
+      return response
+        .status(403)
+        .json({ error: "This payment order belongs to another account." });
     }
     if (
       order.status === "paid" &&
