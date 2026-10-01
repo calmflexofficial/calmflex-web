@@ -11,10 +11,11 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const from = (location.state as { from?: string } | null)?.from || '/';
+  const resumeCheckout = Boolean((location.state as { resumeCheckout?: boolean } | null)?.resumeCheckout);
   const isLogin = !location.pathname.includes('signup');
 
   if (loading) return <main className="page-shell auth-loading"><p className="eyebrow">CalmFlex account</p><h1>Checking your account…</h1></main>;
-  if (user) return <Navigate to={from} replace />;
+  if (user) return <Navigate to={from} replace state={resumeCheckout ? { resumeCheckout: true } : undefined} />;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -36,7 +37,7 @@ export default function AuthPage() {
         if (password !== confirm) throw new Error('Passwords do not match.');
         await signup(name, email, password);
       }
-      navigate(from, { replace: true });
+      navigate(from, { replace: true, state: resumeCheckout ? { resumeCheckout: true } : undefined });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Something went wrong.');
     } finally {
@@ -58,10 +59,10 @@ export default function AuthPage() {
       </section>
       <section className="auth-panel auth-card">
         <div className="auth-tabs" role="tablist">
-          <Link className={isLogin ? 'active' : ''} to="/login">
+          <Link className={isLogin ? 'active' : ''} to="/login" state={location.state}>
             Log in
           </Link>
-          <Link className={!isLogin ? 'active' : ''} to="/signup">
+          <Link className={!isLogin ? 'active' : ''} to="/signup" state={location.state}>
             Sign up
           </Link>
         </div>
@@ -105,11 +106,11 @@ export default function AuthPage() {
         <p className="auth-switch">
           {isLogin ? (
             <>
-              New to CalmFlex? <Link to="/signup">Create an account</Link>
+              New to CalmFlex? <Link to="/signup" state={location.state}>Create an account</Link>
             </>
           ) : (
             <>
-              Already with us? <Link to="/login">Log in</Link>
+              Already with us? <Link to="/login" state={location.state}>Log in</Link>
             </>
           )}
         </p>

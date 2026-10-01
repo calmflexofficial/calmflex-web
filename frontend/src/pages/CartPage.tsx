@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { money } from '../data/products';
 import { paymentConfig } from '../config/payment';
 import { apiUrl } from '../config/api';
@@ -8,17 +9,31 @@ import { startRazorpayCheckout } from '../services/razorpay';
 
 export default function CartPage() {
   const { items, changeQuantity, remove, clear } = useCart();
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [checkout, setCheckout] = useState(false);
   const [placed, setPlaced] = useState(false);
   const [orderReference, setOrderReference] = useState('');
   const [paymentMessage, setPaymentMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (user && (location.state as { resumeCheckout?: boolean } | null)?.resumeCheckout) {
+      setCheckout(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.pathname, location.state, navigate, user]);
+
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal === 0 || subtotal >= 499 ? 0 : 60;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!user) {
+      navigate('/login', { state: { from: '/cart', resumeCheckout: true } });
+      return;
+    }
     const formData = new FormData(event.currentTarget);
     const customer = Object.fromEntries(formData.entries());
     const phone = String(customer.phone || '').replace(/\D/g, '');
@@ -149,9 +164,12 @@ export default function CartPage() {
               className="button button-dark checkout-button"
               type="button"
               disabled={!items.length}
-              onClick={() => setCheckout(true)}
+              onClick={() => {
+                if (!user) navigate('/login', { state: { from: '/cart', resumeCheckout: true } });
+                else setCheckout(true);
+              }}
             >
-              Checkout <span>↗</span>
+              {user ? 'Checkout' : 'Log in to checkout'} <span>↗</span>
             </button>
           </aside>
         </div>

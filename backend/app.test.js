@@ -40,7 +40,7 @@ test("health endpoint reports a live API", async (t) => {
   assert.deepEqual(await response.json(), { status: "ok" });
 });
 
-test("COD order stores server-priced lines and delivery charge", async (t) => {
+test("guest COD checkout is rejected", async (t) => {
   const database = openDatabase(":memory:");
   const app = createApp({ database });
   const server = app.listen(0, "127.0.0.1");
@@ -67,23 +67,16 @@ test("COD order stores server-priced lines and delivery charge", async (t) => {
       }),
     },
   );
-  const result = await response.json();
-  const savedOrder = database
-    .prepare("SELECT * FROM orders WHERE id = ?")
-    .get(result.orderId);
-  assert.equal(response.status, 201);
-  assert.equal(result.subtotal, 399);
-  assert.equal(result.shipping, 60);
-  assert.equal(result.total, 459);
-  assert.equal(savedOrder.status, "confirmed");
-  assert.equal(JSON.parse(savedOrder.items_json)[0].unitPricePaise, 39900);
+  assert.equal(response.status, 401);
+  assert.equal(database.prepare("SELECT COUNT(*) AS count FROM orders").get().count, 0);
 });
 
 test("rejects invalid products and customer data", async (t) => {
   const baseUrl = await withApi(t);
+  const cookie = await signupAndGetCookie(baseUrl);
   const response = await fetch(`${baseUrl}/api/orders`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", cookie },
     body: JSON.stringify({
       customer: { ...customer, phone: "123" },
       paymentMethod: "cod",
@@ -117,9 +110,10 @@ test("online order verifies provider signature, amount, order and captured statu
     razorpay,
     env: { RAZORPAY_KEY_ID: "rzp_test_key", RAZORPAY_KEY_SECRET: secret },
   });
+  const cookie = await signupAndGetCookie(baseUrl);
   const createResponse = await fetch(`${baseUrl}/api/payments/create-order`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", cookie },
     body: JSON.stringify({
       customer,
       items: [{ slug: "derma-roller", quantity: 1 }],
@@ -133,9 +127,24 @@ test("online order verifies provider signature, amount, order and captured statu
   const signature = createHmac("sha256", secret)
     .update(`${gatewayOrder.id}|${paymentId}`)
     .digest("hex");
-  const verification = await fetch(`${baseUrl}/api/payments/verify`, {
+  const guestVerification = await fetch(`${baseUrl}/api/payments/verify`, {
     method: "POST",
     headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      orderId: gatewayOrder.orderId,
+      paymentResponse: {
+        razorpay_order_id: gatewayOrder.id,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: signature,
+      },
+    }),
+  });
+  assert.equal(guestVerification.status, 401);
+  assert.equal(paymentFetches, 0);
+
+  const verification = await fetch(`${baseUrl}/api/payments/verify`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
     body: JSON.stringify({
       orderId: gatewayOrder.orderId,
       paymentResponse: {
@@ -151,7 +160,7 @@ test("online order verifies provider signature, amount, order and captured statu
 
   const repeatedVerification = await fetch(`${baseUrl}/api/payments/verify`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", cookie },
     body: JSON.stringify({
       orderId: gatewayOrder.orderId,
       paymentResponse: {
@@ -167,16 +176,34 @@ test("online order verifies provider signature, amount, order and captured statu
 
 test("online payment remains unavailable without server credentials", async (t) => {
   const baseUrl = await withApi(t);
-  const response = await fetch(`${baseUrl}/api/payments/create-order`, {
+  const payload = {
+    customer,
+    items: [{ slug: "derma-roller", quantity: 1 }],
+  };
+  const guestResponse = await fetch(`${baseUrl}/api/payments/create-order`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      customer,
-      items: [{ slug: "derma-roller", quantity: 1 }],
-    }),
+    body: JSON.stringify(payload),
+  });
+  assert.equal(guestResponse.status, 401);
+  const cookie = await signupAndGetCookie(baseUrl);
+  const response = await fetch(`${baseUrl}/api/payments/create-order`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify(payload),
   });
   assert.equal(response.status, 503);
 });
+
+async function signupAndGetCookie(baseUrl) {
+  const response = await fetch(`${baseUrl}/api/auth/signup`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: customer.name, email: customer.email, password: "long-test-password" }),
+  });
+  assert.equal(response.status, 201);
+  return response.headers.get("set-cookie").split(";")[0];
+}
 
 test("signup creates a hashed account, attaches COD orders, and logout revokes its session", async (t) => {
   const database = openDatabase(":memory:");

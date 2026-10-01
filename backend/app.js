@@ -185,12 +185,6 @@ export function createApp({ database, razorpay = null, env = process.env }) {
     request.user = user;
     next();
   };
-  const loadOptionalUser = (request, _response, next) => {
-    const token = getCookie(request, SESSION_COOKIE);
-    request.user = token ? findSessionUser(database, hashToken(token)) : null;
-    next();
-  };
-
   app.post("/api/auth/signup", authRateLimit, async (request, response) => {
     const name =
       typeof request.body?.name === "string" ? request.body.name.trim() : "";
@@ -305,7 +299,7 @@ export function createApp({ database, razorpay = null, env = process.env }) {
     return response.json({ orders });
   });
 
-  app.post("/api/orders", loadOptionalUser, (request, response) => {
+  app.post("/api/orders", requireUser, (request, response) => {
     if (request.body?.paymentMethod !== "cod")
       return response
         .status(400)
@@ -322,7 +316,7 @@ export function createApp({ database, razorpay = null, env = process.env }) {
     const orderId = randomUUID();
     saveOrder(database, {
       id: orderId,
-      userId: request.user?.id || null,
+      userId: request.user.id,
       status: "confirmed",
       paymentMethod: "cod",
       customer,
@@ -340,7 +334,7 @@ export function createApp({ database, razorpay = null, env = process.env }) {
 
   app.post(
     "/api/payments/create-order",
-    loadOptionalUser,
+    requireUser,
     async (request, response) => {
       const config = paymentConfiguration(env);
       if (!config || !razorpay)
@@ -366,7 +360,7 @@ export function createApp({ database, razorpay = null, env = process.env }) {
         });
         saveOrder(database, {
           id: orderId,
-          userId: request.user?.id || null,
+          userId: request.user.id,
           status: "pending_payment",
           paymentMethod: "razorpay",
           customer,
@@ -390,7 +384,7 @@ export function createApp({ database, razorpay = null, env = process.env }) {
     },
   );
 
-  app.post("/api/payments/verify", async (request, response) => {
+  app.post("/api/payments/verify", requireUser, async (request, response) => {
     const config = paymentConfiguration(env);
     const payment = request.body?.paymentResponse;
     const orderId = request.body?.orderId;
@@ -410,6 +404,9 @@ export function createApp({ database, razorpay = null, env = process.env }) {
       return response.status(404).json({
         error: "Payment order was not found or is no longer pending.",
       });
+    }
+    if (order.user_id !== request.user.id) {
+      return response.status(403).json({ error: "This payment order belongs to another account." });
     }
     if (
       order.status === "paid" &&

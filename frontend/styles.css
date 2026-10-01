@@ -838,6 +838,14 @@ footer p { color: rgba(255,255,255,0.82); font-size: 13px; margin: 0; }
 .order-status { background: #e1f2e8; color: #176a57; font-size: 10px; padding: 5px 8px; text-transform: capitalize; }
 .auth-loading { min-height: 50vh; padding-top: 80px; }
 .auth-loading h1 { font-family: var(--serif); font-size: 48px; font-weight: 500; }
+.auth-prompt-backdrop { align-items: center; background: rgba(13, 38, 39, 0.55); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 100; }
+.auth-prompt { background: var(--foam); border: 1px solid var(--line); box-shadow: 0 24px 80px rgba(10, 55, 60, 0.25); max-width: 460px; padding: 38px; position: relative; width: 100%; }
+.auth-prompt-close { align-items: center; background: none; border: 0; color: var(--muted); cursor: pointer; display: flex; font-size: 26px; height: 38px; justify-content: center; position: absolute; right: 12px; top: 10px; width: 38px; }
+.auth-prompt h2 { font-family: var(--serif); font-size: 38px; font-weight: 500; line-height: 1.05; margin: 0 0 12px; }
+.auth-prompt > p:not(.eyebrow) { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0; }
+.auth-prompt-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.auth-prompt-actions .button { align-items: center; display: inline-flex; justify-content: center; }
+.auth-prompt-browse { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 12px; margin-top: 18px; padding: 6px 0; text-decoration: underline; text-underline-offset: 3px; }
 .breadcrumbs { color: var(--muted); font-size: 12px; margin-bottom: 28px; }
 .header-bar .site-header { flex-wrap: wrap; }
 .account-chip { align-items: center; display: flex; gap: 12px; }
@@ -969,6 +977,8 @@ footer p { color: rgba(255,255,255,0.82); font-size: 13px; margin: 0; }
   .account-section-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
   .account-order { gap: 8px; grid-template-columns: 1fr; }
   .account-order > div, .account-order > div:last-child { justify-content: space-between; }
+  .auth-prompt { padding: 34px 24px 24px; }
+  .auth-prompt h2 { font-size: 32px; }
   .pillar-grid { grid-template-columns: 1fr; }
   .story { display: block; }
   .story-art { min-height: 320px; }
