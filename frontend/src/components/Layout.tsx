@@ -34,8 +34,8 @@ export default function Layout() {
           <div className="header-actions">
             {user ? (
               <div className="account-chip">
-                <span className="account-name">{user.name.split(' ')[0]}</span>
-                <button className="text-link" type="button" onClick={logout}>
+                <Link className="account-name" to="/account">{user.name.split(' ')[0]}</Link>
+                <button className="text-link" type="button" onClick={() => void logout()}>
                   Log out
                 </button>
               </div>

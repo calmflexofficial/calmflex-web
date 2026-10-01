@@ -1,4 +1,4 @@
-import "dotenv/config";
+import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Razorpay from "razorpay";
@@ -6,9 +6,12 @@ import { createApp } from "./app.js";
 import { openDatabase } from "./database.js";
 
 const backendDirectory = path.dirname(fileURLToPath(import.meta.url));
-const databasePath =
-  process.env.DATABASE_PATH ||
-  path.join(backendDirectory, "data", "orders.sqlite");
+dotenv.config({ path: path.join(backendDirectory, ".env") });
+const configuredDatabasePath =
+  process.env.DATABASE_PATH || "data/orders.sqlite";
+const databasePath = path.isAbsolute(configuredDatabasePath)
+  ? configuredDatabasePath
+  : path.resolve(backendDirectory, configuredDatabasePath);
 const database = openDatabase(databasePath);
 const hasPaymentKeys =
   process.env.RAZORPAY_KEY_ID &&

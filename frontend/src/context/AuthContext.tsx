@@ -1,67 +1,66 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-
-const USERS_KEY = 'calmflex-users';
-const SESSION_KEY = 'calmflex-session';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { apiUrl } from '../config/api';
 
 export interface AuthUser {
   name: string;
   email: string;
 }
 
-interface StoredUser extends AuthUser {
-  password: string;
-}
-
 interface AuthContextValue {
   user: AuthUser | null;
-  login: (email: string, password: string) => void;
-  signup: (name: string, email: string, password: string) => void;
-  logout: () => void;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
-const readJson = <T,>(key: string, fallback: T): T => {
-  try {
-    return JSON.parse(localStorage.getItem(key) || '') as T;
-  } catch {
-    return fallback;
-  }
+async function authRequest(path: string, body?: object) {
+  const response = await fetch(apiUrl(path), {
+    method: body ? 'POST' : 'GET',
+    credentials: 'include',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (response.status === 204) return null;
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Account request failed. Please try again.');
+  return result;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => readJson<AuthUser | null>(SESSION_KEY, null));
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    localStorage.removeItem('calmflex-users');
+    localStorage.removeItem('calmflex-session');
+    authRequest('/api/auth/me')
+      .then((result) => setUser(result.user))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      login: (email, password) => {
-        const users = readJson<StoredUser[]>(USERS_KEY, []);
-        const match = users.find(
-          (entry) => entry.email.toLowerCase() === email.trim().toLowerCase() && entry.password === password
-        );
-        if (!match) throw new Error('Email or password is not quite right.');
-        const session = { name: match.name, email: match.email };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-        setUser(session);
+      loading,
+      login: async (email, password) => {
+        if (!password || password.length > 256) throw new Error('Email or password is not quite right.');
+        const result = await authRequest('/api/auth/login', { email, password });
+        setUser(result.user);
       },
-      signup: (name, email, password) => {
-        const users = readJson<StoredUser[]>(USERS_KEY, []);
-        if (users.some((entry) => entry.email.toLowerCase() === email.trim().toLowerCase())) {
-          throw new Error('An account with that email already exists. Try logging in.');
-        }
-        const next: StoredUser = { name: name.trim(), email: email.trim().toLowerCase(), password };
-        localStorage.setItem(USERS_KEY, JSON.stringify([...users, next]));
-        const session = { name: next.name, email: next.email };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-        setUser(session);
+      signup: async (name, email, password) => {
+        const result = await authRequest('/api/auth/signup', { name, email, password });
+        setUser(result.user);
       },
-      logout: () => {
-        localStorage.removeItem(SESSION_KEY);
+      logout: async () => {
+        await authRequest('/api/auth/logout', {});
         setUser(null);
       }
     }),
-    [user]
+    [user, loading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

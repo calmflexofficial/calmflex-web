@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import Database from "better-sqlite3";
 import { test } from "node:test";
 import { createApp } from "./app.js";
 import { openDatabase } from "./database.js";
@@ -172,4 +176,128 @@ test("online payment remains unavailable without server credentials", async (t) 
     }),
   });
   assert.equal(response.status, 503);
+});
+
+test("signup creates a hashed account, attaches COD orders, and logout revokes its session", async (t) => {
+  const database = openDatabase(":memory:");
+  const server = createApp({ database }).listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  t.after(
+    () =>
+      new Promise((resolve, reject) =>
+        server.close((error) => {
+          database.close();
+          error ? reject(error) : resolve();
+        }),
+      ),
+  );
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  const signup = await fetch(`${baseUrl}/api/auth/signup`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      name: customer.name,
+      email: customer.email,
+      password: "long-test-password",
+    }),
+  });
+  const signupResult = await signup.json();
+  const cookie = signup.headers.get("set-cookie").split(";")[0];
+  assert.equal(signup.status, 201);
+  assert.equal(signupResult.user.email, customer.email);
+  assert.doesNotMatch(
+    database
+      .prepare("SELECT password_hash FROM users WHERE id = ?")
+      .get(signupResult.user.id).password_hash,
+    /long-test-password/,
+  );
+
+  const order = await fetch(`${baseUrl}/api/orders`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie },
+    body: JSON.stringify({
+      customer,
+      paymentMethod: "cod",
+      items: [{ slug: "derma-roller", quantity: 1 }],
+    }),
+  });
+  assert.equal(order.status, 201);
+
+  const history = await fetch(`${baseUrl}/api/orders`, { headers: { cookie } });
+  const historyResult = await history.json();
+  assert.equal(history.status, 200);
+  assert.equal(historyResult.orders.length, 1);
+  assert.equal(historyResult.orders[0].id, (await order.json()).orderId);
+
+  const logout = await fetch(`${baseUrl}/api/auth/logout`, {
+    method: "POST",
+    headers: { cookie },
+  });
+  assert.equal(logout.status, 204);
+  const unauthorizedHistory = await fetch(`${baseUrl}/api/orders`, {
+    headers: { cookie },
+  });
+  assert.equal(unauthorizedHistory.status, 401);
+});
+
+test("existing order databases migrate to account ownership", (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "calmflex-migration-"),
+  );
+  const databasePath = path.join(directory, "orders.sqlite");
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const legacyDatabase = new Database(databasePath);
+  legacyDatabase.exec(`CREATE TABLE orders (
+    id TEXT PRIMARY KEY, status TEXT NOT NULL, payment_method TEXT NOT NULL,
+    customer_json TEXT NOT NULL, items_json TEXT NOT NULL,
+    subtotal_paise INTEGER NOT NULL, shipping_paise INTEGER NOT NULL,
+    total_paise INTEGER NOT NULL, gateway_order_id TEXT UNIQUE,
+    gateway_payment_id TEXT UNIQUE, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+  )`);
+  legacyDatabase.close();
+
+  const migrated = openDatabase(databasePath);
+  assert.ok(
+    migrated
+      .pragma("table_info(orders)")
+      .some((column) => column.name === "user_id"),
+  );
+  assert.ok(
+    migrated
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'orders_user_id_idx'",
+      )
+      .get(),
+  );
+  migrated.close();
+});
+
+test("production rejects cross-origin requests when no frontend origin is configured", async (t) => {
+  const baseUrl = await withApi(t, { env: { NODE_ENV: "production" } });
+  const response = await fetch(`${baseUrl}/api/health`, {
+    headers: { origin: "https://shop.example.com" },
+  });
+  assert.equal(response.status, 403);
+});
+
+test("configured frontend origin receives credentialed CORS headers", async (t) => {
+  const baseUrl = await withApi(t, {
+    env: {
+      NODE_ENV: "production",
+      FRONTEND_ORIGIN: "https://shop.example.com",
+    },
+  });
+  const response = await fetch(`${baseUrl}/api/auth/me`, {
+    headers: { origin: "https://shop.example.com" },
+  });
+  assert.equal(response.status, 401);
+  assert.equal(
+    response.headers.get("access-control-allow-origin"),
+    "https://shop.example.com",
+  );
+  assert.equal(
+    response.headers.get("access-control-allow-credentials"),
+    "true",
+  );
 });

@@ -1,6 +1,6 @@
 import { paymentConfig } from '../config/payment';
 
-const isConfigured = () => paymentConfig.publicKey && !paymentConfig.publicKey.includes('REPLACE_ME');
+const isConfigured = () => paymentConfig.publicKey && !paymentConfig.publicKey.toLowerCase().includes('replace_me');
 
 const loadRazorpay = () =>
   new Promise<void>((resolve, reject) => {
@@ -20,6 +20,7 @@ interface CheckoutArgs {
   cart: Array<{ slug: string; quantity: number }>;
   onSuccess: (paymentResponse: unknown, order: PaymentOrder) => void | Promise<void>;
   onError: (message: string) => void;
+  onClose: () => void;
 }
 
 interface PaymentOrder {
@@ -29,7 +30,7 @@ interface PaymentOrder {
   currency: string;
 }
 
-export async function startRazorpayCheckout({ customer, cart, onSuccess, onError }: CheckoutArgs) {
+export async function startRazorpayCheckout({ customer, cart, onSuccess, onError, onClose }: CheckoutArgs) {
   if (!isConfigured()) {
     throw new Error('Online payments are not configured yet. Choose Cash on Delivery or add the Razorpay public key.');
   }
@@ -38,6 +39,7 @@ export async function startRazorpayCheckout({ customer, cart, onSuccess, onError
 
   const response = await fetch(paymentConfig.createOrderEndpoint, {
     method: 'POST',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ customer, items: cart })
   });
@@ -60,6 +62,7 @@ export async function startRazorpayCheckout({ customer, cart, onSuccess, onError
       try {
         const verification = await fetch(paymentConfig.verifyPaymentEndpoint, {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ paymentResponse, orderId: order.orderId })
         });
@@ -72,6 +75,7 @@ export async function startRazorpayCheckout({ customer, cart, onSuccess, onError
         onError(error instanceof Error ? error.message : 'Payment could not be verified. Contact CalmFlex support before retrying.');
       }
     },
+    modal: { ondismiss: onClose },
     theme: { color: '#0d8a96' }
   }).open();
 }

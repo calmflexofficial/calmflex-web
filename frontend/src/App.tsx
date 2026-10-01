@@ -8,6 +8,7 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import CartPage from './pages/CartPage';
 import WhyChoosePage from './pages/WhyChoosePage';
 import AuthPage from './pages/AuthPage';
+import AccountPage from './pages/AccountPage';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
               <Route path="/why-calmflex" element={<WhyChoosePage />} />
               <Route path="/login" element={<AuthPage />} />
               <Route path="/signup" element={<AuthPage />} />
+              <Route path="/account" element={<AccountPage />} />
               <Route path="/shop.html" element={<Navigate to="/products" replace />} />
               <Route path="/cart.html" element={<Navigate to="/cart" replace />} />
             </Route>

@@ -17,6 +17,7 @@ export function openDatabase(
   database.exec(`
     CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id),
       status TEXT NOT NULL,
       payment_method TEXT NOT NULL,
       customer_json TEXT NOT NULL,
@@ -30,26 +31,59 @@ export function openDatabase(
       updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders(created_at);
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at);
   `);
+
+  const orderColumns = database.pragma("table_info(orders)");
+  if (!orderColumns.some((column) => column.name === "user_id")) {
+    database.exec(
+      "ALTER TABLE orders ADD COLUMN user_id TEXT REFERENCES users(id)",
+    );
+  }
+  database.exec(
+    "CREATE INDEX IF NOT EXISTS orders_user_id_idx ON orders(user_id, created_at)",
+  );
   return database;
 }
 
 export function saveOrder(
   database,
-  { id, status, paymentMethod, customer, pricing, gatewayOrderId = null },
+  {
+    id,
+    userId = null,
+    status,
+    paymentMethod,
+    customer,
+    pricing,
+    gatewayOrderId = null,
+  },
 ) {
   const timestamp = new Date().toISOString();
   database
     .prepare(
       `
     INSERT INTO orders (
-      id, status, payment_method, customer_json, items_json,
+      id, user_id, status, payment_method, customer_json, items_json,
       subtotal_paise, shipping_paise, total_paise, gateway_order_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `,
     )
     .run(
       id,
+      userId,
       status,
       paymentMethod,
       JSON.stringify(customer),
@@ -61,4 +95,50 @@ export function saveOrder(
       timestamp,
       timestamp,
     );
+}
+
+export function createUser(database, { id, name, email, passwordHash }) {
+  database
+    .prepare(
+      `
+    INSERT INTO users (id, name, email, password_hash, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `,
+    )
+    .run(id, name, email, passwordHash, new Date().toISOString());
+}
+
+export function findUserByEmail(database, email) {
+  return database
+    .prepare("SELECT * FROM users WHERE email = ? COLLATE NOCASE")
+    .get(email);
+}
+
+export function createSession(database, { tokenHash, userId, expiresAt }) {
+  const now = new Date().toISOString();
+  database.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now);
+  database
+    .prepare(
+      `
+    INSERT INTO sessions (token_hash, user_id, expires_at, created_at)
+    VALUES (?, ?, ?, ?)
+  `,
+    )
+    .run(tokenHash, userId, expiresAt, now);
+}
+
+export function findSessionUser(database, tokenHash) {
+  return database
+    .prepare(
+      `
+    SELECT users.id, users.name, users.email
+    FROM sessions JOIN users ON users.id = sessions.user_id
+    WHERE sessions.token_hash = ? AND sessions.expires_at > ?
+  `,
+    )
+    .get(tokenHash, new Date().toISOString());
+}
+
+export function deleteSession(database, tokenHash) {
+  database.prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
 }

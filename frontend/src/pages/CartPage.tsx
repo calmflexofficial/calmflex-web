@@ -12,6 +12,7 @@ export default function CartPage() {
   const [placed, setPlaced] = useState(false);
   const [orderReference, setOrderReference] = useState('');
   const [paymentMessage, setPaymentMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const shipping = subtotal === 0 || subtotal >= 499 ? 0 : 60;
@@ -30,10 +31,12 @@ export default function CartPage() {
       setPaymentMessage('Enter a valid 6-digit PIN code.');
       return;
     }
+    setSubmitting(true);
     if (formData.get('payment') === 'cod') {
       try {
         const response = await fetch(apiUrl('/api/orders'), {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             customer,
@@ -48,6 +51,8 @@ export default function CartPage() {
         setPlaced(true);
       } catch (error) {
         setPaymentMessage(error instanceof Error ? error.message : 'Unable to place your order.');
+      } finally {
+        setSubmitting(false);
       }
       return;
     }
@@ -59,11 +64,17 @@ export default function CartPage() {
           setOrderReference(order.orderId);
           clear();
           setPlaced(true);
+          setSubmitting(false);
         },
-        onError: setPaymentMessage
+        onError: (message) => {
+          setPaymentMessage(message);
+          setSubmitting(false);
+        },
+        onClose: () => setSubmitting(false)
       });
     } catch (error) {
       setPaymentMessage(error instanceof Error ? error.message : 'Payment could not start.');
+      setSubmitting(false);
     }
   };
 
@@ -103,7 +114,7 @@ export default function CartPage() {
                       −
                     </button>
                     <span>{item.quantity}</span>
-                    <button type="button" aria-label="Increase quantity" onClick={() => changeQuantity(item.slug, 1)}>
+                    <button type="button" aria-label="Increase quantity" disabled={item.quantity >= 10} onClick={() => changeQuantity(item.slug, 1)}>
                       +
                     </button>
                   </div>
@@ -185,13 +196,13 @@ export default function CartPage() {
                   <input type="radio" name="payment" value="card" disabled={!paymentConfig.publicKey} /> Card
                 </label>
                 <label>
-                  <input type="radio" name="payment" value="cod" /> Cash on delivery
+                  <input type="radio" name="payment" value="cod" defaultChecked={!paymentConfig.publicKey} /> Cash on delivery
                 </label>
               </div>
-              {paymentMessage && <p className="shipping-note">{paymentMessage}</p>}
+              {paymentMessage && <p className="shipping-note" role="alert">{paymentMessage}</p>}
             </div>
-            <button className="button button-dark full-field" type="submit">
-              Place order <span>↗</span>
+            <button className="button button-dark full-field" type="submit" disabled={submitting}>
+              {submitting ? 'Processing…' : 'Place order'} <span>↗</span>
             </button>
           </form>
         </section>

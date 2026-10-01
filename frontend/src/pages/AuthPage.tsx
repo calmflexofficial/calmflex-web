@@ -5,16 +5,21 @@ import { useAuth } from '../context/AuthContext';
 const logo = '/assets/calmflex-logo.jpg';
 
 export default function AuthPage() {
-  const { user, login, signup } = useAuth();
+  const { user, loading, login, signup } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const from = (location.state as { from?: string } | null)?.from || '/';
   const isLogin = !location.pathname.includes('signup');
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  if (loading) return <main className="page-shell auth-loading"><p className="eyebrow">CalmFlex account</p><h1>Checking your account…</h1></main>;
+  if (user) return <Navigate to={from} replace />;
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+    setSubmitting(true);
     const data = new FormData(event.currentTarget);
     const name = String(data.get('name') || '').trim();
     const email = String(data.get('email') || '').trim();
@@ -23,17 +28,19 @@ export default function AuthPage() {
 
     try {
       if (!email || !password) throw new Error('Please fill in your email and password.');
-      if (password.length < 6) throw new Error('Use at least 6 characters for your password.');
+      if (password.length < 10) throw new Error('Use at least 10 characters for your password.');
       if (isLogin) {
-        login(email, password);
+        await login(email, password);
       } else {
         if (!name) throw new Error('Please add your name.');
         if (password !== confirm) throw new Error('Passwords do not match.');
-        signup(name, email, password);
+        await signup(name, email, password);
       }
       navigate(from, { replace: true });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Something went wrong.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -75,14 +82,15 @@ export default function AuthPage() {
               name="password"
               type="password"
               autoComplete={isLogin ? 'current-password' : 'new-password'}
-              placeholder="At least 6 characters"
+              minLength={10}
+              placeholder="At least 10 characters"
               required
             />
           </label>
           {!isLogin && (
             <label>
               Confirm password
-              <input name="confirm" type="password" autoComplete="new-password" placeholder="Repeat password" />
+              <input name="confirm" type="password" minLength={10} autoComplete="new-password" placeholder="Repeat password" required />
             </label>
           )}
           {error && (
@@ -90,8 +98,8 @@ export default function AuthPage() {
               {error}
             </p>
           )}
-          <button className="button button-dark" type="submit">
-            {isLogin ? 'Log in' : 'Create account'} <span>↗</span>
+          <button className="button button-dark" type="submit" disabled={submitting}>
+            {submitting ? 'Please wait…' : isLogin ? 'Log in' : 'Create account'} <span>↗</span>
           </button>
         </form>
         <p className="auth-switch">

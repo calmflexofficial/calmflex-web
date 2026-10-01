@@ -58,7 +58,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       changeQuantity: (slug, delta) => {
         persist(
           items
-            .map((item) => (item.slug === slug ? { ...item, quantity: item.quantity + delta } : item))
+            .map((item) => (item.slug === slug ? { ...item, quantity: Math.min(10, item.quantity + delta) } : item))
             .filter((item) => item.quantity > 0)
         );
       },
