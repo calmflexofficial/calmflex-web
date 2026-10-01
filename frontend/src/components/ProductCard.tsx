@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { money } from '../data/products';
+import { categoryLabels, money } from '../data/products';
 import { useCart } from '../context/CartContext';
 import type { Product } from '../types/product';
 
@@ -14,6 +14,7 @@ export default function ProductCard({ product }: { product: Product }) {
       </Link>
       <div className="product-info">
         <div>
+          <p className="product-category-label">{categoryLabels[product.category]}</p>
           <h3>
             <Link to={`/products/${product.slug}`}>{product.name}</Link>
           </h3>

@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import ProductCard from '../components/ProductCard';
-import { products } from '../data/products';
+import { categoryLabels, products } from '../data/products';
 import type { ProductCategory } from '../types/product';
 
 const filters: Array<{ id: 'all' | ProductCategory; label: string }> = [
   { id: 'all', label: 'All products' },
   { id: 'wellness', label: 'Wellness' },
-  { id: 'beauty', label: 'Beauty' },
-  { id: 'fitness', label: 'Fitness' }
+  { id: 'beauty', label: categoryLabels.beauty },
+  { id: 'fitness', label: categoryLabels.fitness }
 ];
 
 export default function ProductsPage() {

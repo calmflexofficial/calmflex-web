@@ -19,7 +19,7 @@ interface CartContextValue {
   items: CartItem[];
   count: number;
   notice: string;
-  add: (product: Product) => void;
+  add: (product: Product, quantity?: number) => void;
   changeQuantity: (slug: string, delta: number) => void;
   remove: (slug: string) => void;
   clear: () => void;
@@ -41,12 +41,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items,
       count: items.reduce((sum, item) => sum + item.quantity, 0),
       notice,
-      add: (product) => {
+      add: (product, quantity = 1) => {
         const next = [...items];
         const existing = next.find((item) => item.slug === product.slug || item.name === product.name);
-        existing ? (existing.quantity += 1) : next.push({ ...product, quantity: 1 });
+        const quantityToAdd = Math.max(0, Math.min(quantity, 10 - (existing?.quantity || 0)));
+        if (quantityToAdd === 0) {
+          setNotice(`Maximum 10 units of ${product.name} per order`);
+          window.setTimeout(() => setNotice(''), 1800);
+          return;
+        }
+        existing ? (existing.quantity += quantityToAdd) : next.push({ ...product, quantity: quantityToAdd });
         persist(next);
-        setNotice(`${product.name} added to cart`);
+        setNotice(`${quantityToAdd} × ${product.name} added to cart`);
         window.setTimeout(() => setNotice(''), 1800);
       },
       changeQuantity: (slug, delta) => {
