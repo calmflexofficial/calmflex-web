@@ -71,7 +71,9 @@ export function openDatabase(
   }
   const userColumns = database.pragma("table_info(users)");
   if (!userColumns.some((column) => column.name === "role")) {
-    database.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'");
+    database.exec(
+      "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'",
+    );
   }
   database.exec(
     "CREATE INDEX IF NOT EXISTS orders_user_id_idx ON orders(user_id, created_at)",
@@ -117,7 +119,10 @@ export function saveOrder(
     );
 }
 
-export function createUser(database, { id, name, email, passwordHash, role = "customer" }) {
+export function createUser(
+  database,
+  { id, name, email, passwordHash, role = "customer" },
+) {
   database
     .prepare(
       `
@@ -128,11 +133,16 @@ export function createUser(database, { id, name, email, passwordHash, role = "cu
     .run(id, name, email, passwordHash, role, new Date().toISOString());
 }
 
-export function provisionAdminUser(database, { id, name, email, passwordHash }) {
+export function provisionAdminUser(
+  database,
+  { id, name, email, passwordHash },
+) {
   const existing = findUserByEmail(database, email);
   if (existing) {
     database
-      .prepare("UPDATE users SET name = ?, password_hash = ?, role = 'admin' WHERE id = ?")
+      .prepare(
+        "UPDATE users SET name = ?, password_hash = ?, role = 'admin' WHERE id = ?",
+      )
       .run(name, passwordHash, existing.id);
     return existing.id;
   }

@@ -35,7 +35,10 @@ try {
     console.log(`CalmFlex API listening on ${host}:${port}`);
     console.log(`SQLite database: ${databasePath}`);
     if (adminProvisioned) console.log("Configured admin account is ready.");
-    else console.warn("Admin dashboard disabled; configure ADMIN_EMAIL and ADMIN_PASSWORD in backend/.env.");
+    else
+      console.warn(
+        "Admin dashboard disabled; configure ADMIN_EMAIL and ADMIN_PASSWORD in backend/.env.",
+      );
     if (!razorpay)
       console.log(
         "Online payments disabled; set Razorpay credentials in backend/.env to enable them.",
