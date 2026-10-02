@@ -894,6 +894,38 @@ footer p { color: rgba(255,255,255,0.82); font-size: 13px; margin: 0; }
 .account-order strong { font-size: 13px; }
 .account-order time, .account-order p { color: var(--muted); font-size: 12px; margin: 0; }
 .order-status { background: #e1f2e8; color: #176a57; font-size: 10px; padding: 5px 8px; text-transform: capitalize; }
+.account-tracking { color: var(--teal-deep) !important; grid-column: 1 / -1; }
+.admin-page { max-width: 1440px; }
+.admin-header { align-items: end; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding-bottom: 24px; }
+.admin-header h1 { font-family: var(--serif); font-size: clamp(42px, 6vw, 68px); font-weight: 500; line-height: 1; margin: 0; }
+.admin-header-actions { align-items: center; display: flex; gap: 12px; }
+.admin-open-count { background: #e1f2e8; color: #176a57; font-size: 12px; padding: 8px 11px; }
+.admin-refresh { cursor: pointer; }
+.admin-refresh-note { color: var(--muted); font-size: 12px; margin: 14px 0 24px; }
+.admin-order-list { display: grid; gap: 14px; }
+.admin-order-card { background: #fff; border: 1px solid var(--line); border-radius: 6px; min-width: 0; padding: 20px; }
+.admin-order-heading { align-items: center; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding-bottom: 14px; }
+.admin-order-heading .eyebrow { margin: 0 0 5px; }
+.admin-order-heading time, .admin-order-customer small { color: var(--muted); font-size: 11px; }
+.admin-order-badges { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.payment-status { border: 1px solid var(--line); color: var(--muted); font-size: 10px; padding: 5px 8px; }
+.admin-order-content { display: grid; gap: 24px; grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.8fr) minmax(230px, 1fr); padding-top: 18px; }
+.admin-order-customer { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.admin-order-customer h2 { font-size: 15px; margin: 0 0 2px; }
+.admin-order-customer a { color: var(--teal-deep); font-size: 12px; overflow-wrap: anywhere; }
+.admin-order-customer p { font-size: 12px; line-height: 1.5; margin: 4px 0; }
+.admin-order-items { border-left: 1px solid var(--line); padding-left: 18px; }
+.admin-order-item, .admin-order-total { display: flex; font-size: 12px; justify-content: space-between; gap: 12px; padding: 7px 0; }
+.admin-order-item strong, .admin-order-total strong { white-space: nowrap; }
+.admin-order-total { border-top: 1px solid var(--line); font-size: 14px; margin-top: 6px; padding-top: 12px; }
+.admin-order-actions { border-left: 1px solid var(--line); display: grid; gap: 12px; padding-left: 18px; }
+.admin-order-actions label { color: var(--muted); display: grid; font-size: 11px; gap: 5px; }
+.admin-order-actions select, .admin-order-actions input, .admin-order-actions textarea { background: #fff; border: 1px solid var(--line); border-radius: 0; color: var(--ink); font: inherit; font-size: 12px; min-width: 0; padding: 9px 10px; width: 100%; }
+.admin-order-actions textarea { resize: vertical; }
+.admin-tracking-fields { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.admin-save { border: 0; cursor: pointer; justify-content: center; }
+.admin-save:disabled { cursor: not-allowed; opacity: 0.55; }
+.admin-nav-link { font-size: 12px; }
 .auth-loading { min-height: 50vh; padding-top: 80px; }
 .auth-loading h1 { font-family: var(--serif); font-size: 48px; font-weight: 500; }
 .auth-prompt-backdrop { align-items: center; background: rgba(13, 38, 39, 0.55); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 100; }
@@ -1040,6 +1072,13 @@ footer p { color: rgba(255,255,255,0.82); font-size: 13px; margin: 0; }
   .account-section-heading { align-items: flex-start; flex-direction: column; gap: 10px; }
   .account-order { gap: 8px; grid-template-columns: 1fr; }
   .account-order > div, .account-order > div:last-child { justify-content: space-between; }
+  .admin-header { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .admin-order-card { padding: 14px; }
+  .admin-order-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .admin-order-badges { justify-content: flex-start; }
+  .admin-order-content { gap: 18px; grid-template-columns: 1fr; }
+  .admin-order-items, .admin-order-actions { border-left: 0; border-top: 1px solid var(--line); padding: 14px 0 0; }
+  .admin-tracking-fields { grid-template-columns: 1fr; }
   .auth-prompt { padding: 34px 24px 24px; }
   .auth-prompt h2 { font-size: 32px; }
   .pillar-grid { grid-template-columns: 1fr; }

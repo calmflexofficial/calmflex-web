@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { test } from "node:test";
-import { createApp } from "./app.js";
+import { createApp, provisionAdminAccount } from "./app.js";
 import { priceItems } from "./catalog.js";
 import { openDatabase } from "./database.js";
 
@@ -254,6 +254,7 @@ test("signup creates a hashed account, attaches COD orders, and logout revokes i
   const cookie = signup.headers.get("set-cookie").split(";")[0];
   assert.equal(signup.status, 201);
   assert.equal(signupResult.user.email, customer.email);
+  assert.equal(signupResult.user.role, "customer");
   assert.doesNotMatch(
     database
       .prepare("SELECT password_hash FROM users WHERE id = ?")
@@ -311,6 +312,8 @@ test("existing order databases migrate to account ownership", (t) => {
       .pragma("table_info(orders)")
       .some((column) => column.name === "user_id"),
   );
+  assert.ok(migrated.pragma("table_info(orders)").some((column) => column.name === "fulfillment_status"));
+  assert.ok(migrated.pragma("table_info(users)").some((column) => column.name === "role"));
   assert.ok(
     migrated
       .prepare(
@@ -348,4 +351,61 @@ test("configured frontend origin receives credentialed CORS headers", async (t) 
     response.headers.get("access-control-allow-credentials"),
     "true",
   );
+});
+
+test("provisioned admin can fulfill an order and customer sees tracking updates", async (t) => {
+  const database = openDatabase(":memory:");
+  const adminEnv = {
+    ADMIN_EMAIL: "admin@calmflex.test",
+    ADMIN_PASSWORD: "a-unique-admin-password-2026",
+  };
+  assert.equal(await provisionAdminAccount(database, adminEnv), true);
+  const server = createApp({ database }).listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  t.after(() => new Promise((resolve, reject) => server.close((error) => {
+    database.close();
+    error ? reject(error) : resolve();
+  })));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const customerCookie = await signupAndGetCookie(baseUrl);
+  const orderResponse = await fetch(`${baseUrl}/api/orders`, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: customerCookie },
+    body: JSON.stringify({ customer, paymentMethod: "cod", items: [{ slug: "derma-roller", quantity: 1 }] }),
+  });
+  const placedOrder = await orderResponse.json();
+  assert.equal(orderResponse.status, 201);
+
+  const customerDenied = await fetch(`${baseUrl}/api/admin/orders`, { headers: { cookie: customerCookie } });
+  assert.equal(customerDenied.status, 403);
+
+  const adminLogin = await fetch(`${baseUrl}/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: adminEnv.ADMIN_EMAIL, password: adminEnv.ADMIN_PASSWORD }),
+  });
+  assert.equal(adminLogin.status, 200);
+  assert.equal((await adminLogin.json()).user.role, "admin");
+  const adminCookie = adminLogin.headers.get("set-cookie").split(";")[0];
+
+  const queue = await fetch(`${baseUrl}/api/admin/orders`, { headers: { cookie: adminCookie } });
+  assert.equal(queue.status, 200);
+  assert.equal((await queue.json()).orders[0].customer.email, customer.email);
+
+  const updateStatus = async (fulfillmentStatus, extra = {}) => fetch(`${baseUrl}/api/admin/orders/${placedOrder.orderId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json", cookie: adminCookie },
+    body: JSON.stringify({ fulfillmentStatus, ...extra }),
+  });
+  assert.equal((await updateStatus("accepted")).status, 200);
+  assert.equal((await updateStatus("packing")).status, 200);
+  assert.equal((await updateStatus("dispatched")).status, 400);
+  assert.equal((await updateStatus("dispatched", { trackingCarrier: "Vultr Courier", trackingNumber: "CF-12345" })).status, 200);
+  assert.equal((await updateStatus("delivered")).status, 200);
+
+  const history = await fetch(`${baseUrl}/api/orders`, { headers: { cookie: customerCookie } });
+  const customerOrder = (await history.json()).orders[0];
+  assert.equal(customerOrder.fulfillmentStatus, "delivered");
+  assert.equal(customerOrder.trackingCarrier, "Vultr Courier");
+  assert.equal(customerOrder.trackingNumber, "CF-12345");
 });

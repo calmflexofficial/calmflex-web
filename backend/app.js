@@ -17,6 +17,7 @@ import {
   deleteSession,
   findSessionUser,
   findUserByEmail,
+  provisionAdminUser,
   saveOrder,
 } from "./database.js";
 
@@ -52,7 +53,7 @@ function clearSessionCookie(response, env) {
 }
 
 function publicUser(user) {
-  return { id: user.id, name: user.name, email: user.email };
+  return { id: user.id, name: user.name, email: user.email, role: user.role };
 }
 
 function hashToken(token) {
@@ -96,6 +97,26 @@ function validateCustomer(input) {
   if (!/^\d{6}$/.test(customer.pin))
     throw new Error("Enter a valid 6-digit PIN code.");
   return customer;
+}
+
+export async function provisionAdminAccount(database, env = process.env) {
+  const email = typeof env.ADMIN_EMAIL === "string" ? env.ADMIN_EMAIL.trim().toLowerCase() : "";
+  const password = typeof env.ADMIN_PASSWORD === "string" ? env.ADMIN_PASSWORD : "";
+  if (!email && !password) return false;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("ADMIN_EMAIL must be a valid email address when bootstrapping an admin account.");
+  }
+  if (password.length < 14 || password.length > 256) {
+    throw new Error("ADMIN_PASSWORD must be 14 to 256 characters when bootstrapping an admin account.");
+  }
+  const existing = findUserByEmail(database, email);
+  provisionAdminUser(database, {
+    id: existing?.id || randomUUID(),
+    name: existing?.name || "CalmFlex Admin",
+    email,
+    passwordHash: await hashPassword(password),
+  });
+  return true;
 }
 
 function paymentConfiguration(env) {
@@ -185,6 +206,14 @@ export function createApp({ database, razorpay = null, env = process.env }) {
     request.user = user;
     next();
   };
+  const requireAdmin = (request, response, next) => {
+    requireUser(request, response, () => {
+      if (request.user.role !== "admin") {
+        return response.status(403).json({ error: "Admin access is required." });
+      }
+      next();
+    });
+  };
   app.post("/api/auth/signup", authRateLimit, async (request, response) => {
     const name =
       typeof request.body?.name === "string" ? request.body.name.trim() : "";
@@ -209,7 +238,7 @@ export function createApp({ database, razorpay = null, env = process.env }) {
         error: "An account with that email already exists. Try logging in.",
       });
 
-    const user = { id: randomUUID(), name, email };
+    const user = { id: randomUUID(), name, email, role: "customer" };
     try {
       createUser(database, {
         ...user,
@@ -277,7 +306,8 @@ export function createApp({ database, razorpay = null, env = process.env }) {
     const orders = database
       .prepare(
         `
-      SELECT id, status, payment_method, items_json, subtotal_paise, shipping_paise, total_paise, created_at
+      SELECT id, status, fulfillment_status, tracking_carrier, tracking_number,
+        payment_method, items_json, subtotal_paise, shipping_paise, total_paise, created_at
       FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 100
     `,
       )
@@ -285,6 +315,9 @@ export function createApp({ database, razorpay = null, env = process.env }) {
       .map((order) => ({
         id: order.id,
         status: order.status,
+        fulfillmentStatus: order.fulfillment_status,
+        trackingCarrier: order.tracking_carrier,
+        trackingNumber: order.tracking_number,
         paymentMethod: order.payment_method,
         items: JSON.parse(order.items_json),
         subtotal: order.subtotal_paise / 100,
@@ -293,6 +326,79 @@ export function createApp({ database, razorpay = null, env = process.env }) {
         createdAt: order.created_at,
       }));
     return response.json({ orders });
+  });
+
+  app.get("/api/admin/orders", requireAdmin, (request, response) => {
+    const orders = database.prepare(`
+      SELECT orders.id, orders.status, orders.fulfillment_status, orders.payment_method,
+        orders.customer_json, orders.items_json, orders.subtotal_paise, orders.shipping_paise,
+        orders.total_paise, orders.tracking_carrier, orders.tracking_number, orders.admin_note,
+        orders.created_at, users.name AS account_name, users.email AS account_email
+      FROM orders LEFT JOIN users ON users.id = orders.user_id
+      ORDER BY CASE orders.fulfillment_status WHEN 'new' THEN 0 WHEN 'accepted' THEN 1
+        WHEN 'packing' THEN 2 WHEN 'dispatched' THEN 3 ELSE 4 END, orders.created_at ASC
+      LIMIT 250
+    `).all().map((order) => ({
+      id: order.id,
+      paymentStatus: order.status,
+      fulfillmentStatus: order.fulfillment_status,
+      paymentMethod: order.payment_method,
+      customer: JSON.parse(order.customer_json),
+      account: order.account_email ? { name: order.account_name, email: order.account_email } : null,
+      items: JSON.parse(order.items_json),
+      subtotal: order.subtotal_paise / 100,
+      shipping: order.shipping_paise / 100,
+      total: order.total_paise / 100,
+      trackingCarrier: order.tracking_carrier || "",
+      trackingNumber: order.tracking_number || "",
+      adminNote: order.admin_note || "",
+      createdAt: order.created_at,
+    }));
+    return response.json({ orders });
+  });
+
+  app.patch("/api/admin/orders/:orderId", requireAdmin, (request, response) => {
+    const order = database.prepare(`
+      SELECT id, status, fulfillment_status, payment_method, tracking_carrier, tracking_number
+      FROM orders WHERE id = ?
+    `).get(request.params.orderId);
+    if (!order) return response.status(404).json({ error: "Order not found." });
+
+    const nextStatus = request.body?.fulfillmentStatus;
+    const transitions = {
+      new: ["accepted", "rejected"],
+      accepted: ["packing", "cancelled"],
+      packing: ["dispatched", "cancelled"],
+      dispatched: ["delivered"],
+      delivered: [],
+      rejected: [],
+      cancelled: [],
+    };
+    if (!transitions[order.fulfillment_status]?.includes(nextStatus)) {
+      return response.status(409).json({ error: "That order status transition is not allowed." });
+    }
+    if (nextStatus === "accepted" && order.payment_method !== "cod" && order.status !== "paid") {
+      return response.status(409).json({ error: "Payment must be verified before accepting this order." });
+    }
+
+    const trackingCarrier = typeof request.body?.trackingCarrier === "string"
+      ? request.body.trackingCarrier.trim().slice(0, 80)
+      : order.tracking_carrier || "";
+    const trackingNumber = typeof request.body?.trackingNumber === "string"
+      ? request.body.trackingNumber.trim().slice(0, 120)
+      : order.tracking_number || "";
+    const adminNote = typeof request.body?.adminNote === "string"
+      ? request.body.adminNote.trim().slice(0, 500)
+      : "";
+    if (nextStatus === "dispatched" && (!trackingCarrier || !trackingNumber)) {
+      return response.status(400).json({ error: "Enter the courier and tracking number before dispatch." });
+    }
+
+    database.prepare(`
+      UPDATE orders SET fulfillment_status = ?, tracking_carrier = ?, tracking_number = ?,
+        admin_note = ?, updated_at = ? WHERE id = ?
+    `).run(nextStatus, trackingCarrier || null, trackingNumber || null, adminNote || null, new Date().toISOString(), order.id);
+    return response.json({ orderId: order.id, fulfillmentStatus: nextStatus });
   });
 
   app.post("/api/orders", requireUser, (request, response) => {

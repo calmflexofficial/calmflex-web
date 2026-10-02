@@ -51,6 +51,7 @@ export default function Layout() {
             {user ? (
               <div className="account-chip">
                 <Link className="account-name" to="/account">{user.name.split(' ')[0]}</Link>
+                {user.role === 'admin' && <Link className="text-link admin-nav-link" to="/admin">Orders</Link>}
                 <button className="text-link" type="button" onClick={() => void logout()}>
                   Log out
                 </button>

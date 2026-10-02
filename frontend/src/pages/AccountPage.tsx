@@ -7,6 +7,9 @@ import { useAuth } from '../context/AuthContext';
 interface CustomerOrder {
   id: string;
   status: string;
+  fulfillmentStatus: string;
+  trackingCarrier: string | null;
+  trackingNumber: string | null;
   paymentMethod: string;
   items: Array<{ name: string; quantity: number }>;
   total: number;
@@ -48,7 +51,8 @@ export default function AccountPage() {
           <article className="account-order" key={order.id}>
             <div><strong>Order {order.id.slice(0, 8).toUpperCase()}</strong><time dateTime={order.createdAt}>{new Date(order.createdAt).toLocaleDateString('en-IN')}</time></div>
             <p>{order.items.map((item) => `${item.quantity} × ${item.name}`).join(', ')}</p>
-            <div><span className="order-status">{order.status.replace('_', ' ')}</span><strong>{money(order.total)}</strong></div>
+            <div><span className="order-status">{order.status === 'pending_payment' ? 'payment pending' : order.fulfillmentStatus.replace('_', ' ')}</span><strong>{money(order.total)}</strong></div>
+            {order.trackingNumber && <p className="account-tracking">Tracking: {order.trackingCarrier} · {order.trackingNumber}</p>}
           </article>
         ))}
       </section>

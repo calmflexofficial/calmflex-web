@@ -19,6 +19,10 @@ export function openDatabase(
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES users(id),
       status TEXT NOT NULL,
+      fulfillment_status TEXT NOT NULL DEFAULT 'new',
+      tracking_carrier TEXT,
+      tracking_number TEXT,
+      admin_note TEXT,
       payment_method TEXT NOT NULL,
       customer_json TEXT NOT NULL,
       items_json TEXT NOT NULL,
@@ -36,6 +40,7 @@ export function openDatabase(
       name TEXT NOT NULL,
       email TEXT NOT NULL COLLATE NOCASE UNIQUE,
       password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'customer',
       created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS sessions (
@@ -52,6 +57,21 @@ export function openDatabase(
     database.exec(
       "ALTER TABLE orders ADD COLUMN user_id TEXT REFERENCES users(id)",
     );
+  }
+  const migratedOrderColumns = database.pragma("table_info(orders)");
+  for (const [column, definition] of [
+    ["fulfillment_status", "TEXT NOT NULL DEFAULT 'new'"],
+    ["tracking_carrier", "TEXT"],
+    ["tracking_number", "TEXT"],
+    ["admin_note", "TEXT"],
+  ]) {
+    if (!migratedOrderColumns.some((entry) => entry.name === column)) {
+      database.exec(`ALTER TABLE orders ADD COLUMN ${column} ${definition}`);
+    }
+  }
+  const userColumns = database.pragma("table_info(users)");
+  if (!userColumns.some((column) => column.name === "role")) {
+    database.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'");
   }
   database.exec(
     "CREATE INDEX IF NOT EXISTS orders_user_id_idx ON orders(user_id, created_at)",
@@ -97,15 +117,27 @@ export function saveOrder(
     );
 }
 
-export function createUser(database, { id, name, email, passwordHash }) {
+export function createUser(database, { id, name, email, passwordHash, role = "customer" }) {
   database
     .prepare(
       `
-    INSERT INTO users (id, name, email, password_hash, created_at)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO users (id, name, email, password_hash, role, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
   `,
     )
-    .run(id, name, email, passwordHash, new Date().toISOString());
+    .run(id, name, email, passwordHash, role, new Date().toISOString());
+}
+
+export function provisionAdminUser(database, { id, name, email, passwordHash }) {
+  const existing = findUserByEmail(database, email);
+  if (existing) {
+    database
+      .prepare("UPDATE users SET name = ?, password_hash = ?, role = 'admin' WHERE id = ?")
+      .run(name, passwordHash, existing.id);
+    return existing.id;
+  }
+  createUser(database, { id, name, email, passwordHash, role: "admin" });
+  return id;
 }
 
 export function findUserByEmail(database, email) {
@@ -131,7 +163,7 @@ export function findSessionUser(database, tokenHash) {
   return database
     .prepare(
       `
-    SELECT users.id, users.name, users.email
+    SELECT users.id, users.name, users.email, users.role
     FROM sessions JOIN users ON users.id = sessions.user_id
     WHERE sessions.token_hash = ? AND sessions.expires_at > ?
   `,

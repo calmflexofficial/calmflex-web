@@ -2,8 +2,10 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { apiUrl } from '../config/api';
 
 export interface AuthUser {
+  id: string;
   name: string;
   email: string;
+  role: 'customer' | 'admin';
 }
 
 interface AuthContextValue {
