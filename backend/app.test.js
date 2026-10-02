@@ -6,6 +6,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { test } from "node:test";
 import { createApp } from "./app.js";
+import { priceItems } from "./catalog.js";
 import { openDatabase } from "./database.js";
 
 const customer = {
@@ -74,6 +75,19 @@ test("guest COD checkout is rejected", async (t) => {
   );
 });
 
+test("updated product prices are authoritative for checkout", () => {
+  const prices = [
+    ["mini-massage-gun", 64900],
+    ["scalp-massager", 139900],
+    ["face-roller", 29900],
+    ["derma-roller", 29900],
+  ];
+  for (const [slug, expectedPaise] of prices) {
+    const priced = priceItems([{ slug, quantity: 1 }]);
+    assert.equal(priced.lines[0].unitPricePaise, expectedPaise);
+  }
+});
+
 test("rejects invalid products and customer data", async (t) => {
   const baseUrl = await withApi(t);
   const cookie = await signupAndGetCookie(baseUrl);
@@ -103,7 +117,7 @@ test("online order verifies provider signature, amount, order and captured statu
         return {
           id,
           order_id: "gateway-order-1",
-          amount: 45900,
+          amount: 35900,
           status: "captured",
         };
       },
@@ -124,7 +138,7 @@ test("online order verifies provider signature, amount, order and captured statu
   });
   const gatewayOrder = await createResponse.json();
   assert.equal(createResponse.status, 201);
-  assert.equal(gatewayOrder.amount, 45900);
+  assert.equal(gatewayOrder.amount, 35900);
 
   const paymentId = "gateway-payment-1";
   const signature = createHmac("sha256", secret)
