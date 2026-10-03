@@ -10,10 +10,12 @@ export default function Layout() {
   const { user, loading, logout } = useAuth();
   const { pathname } = useLocation();
   const [authPromptDismissed, setAuthPromptDismissed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const showAuthPrompt = !loading && !user && !authPromptDismissed;
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setMobileMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -37,21 +39,35 @@ export default function Layout() {
       </div>
       <div className="header-bar">
         <header className="site-header">
+          <button
+            className="menu-toggle"
+            type="button"
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((open) => !open)}
+          >
+            {mobileMenuOpen ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+            )}
+          </button>
           <NavLink className="brand" to="/" aria-label="CalmFlex home">
             <img src={logo} alt="CalmFlex" />
           </NavLink>
-          <nav className="desktop-nav">
-            <NavLink to="/" end>
-              Home
-            </NavLink>
-            <NavLink to="/products">Products</NavLink>
-            <NavLink to="/why-calmflex">Why CalmFlex</NavLink>
+          <nav className={`desktop-nav${mobileMenuOpen ? ' is-open' : ''}`} aria-label="Main navigation">
+            <ul className="desktop-nav-list">
+              <li><NavLink to="/" end>Home</NavLink></li>
+              <li><NavLink to="/products">Products</NavLink></li>
+              <li><NavLink to="/why-calmflex">Why CalmFlex</NavLink></li>
+              <li><NavLink to="/account">My orders</NavLink></li>
+              {user?.role === 'admin' && <li><NavLink to="/admin">Order desk</NavLink></li>}
+            </ul>
           </nav>
           <div className="header-actions">
             {user ? (
               <div className="account-chip">
                 <Link className="account-name" to="/account">{user.name.split(' ')[0]}</Link>
-                {user.role === 'admin' && <Link className="text-link admin-nav-link" to="/admin">Orders</Link>}
                 <button className="text-link" type="button" onClick={() => void logout()}>
                   Log out
                 </button>
@@ -88,6 +104,8 @@ export default function Layout() {
         <div className="footer-links">
           <NavLink to="/products">Products</NavLink>
           <NavLink to="/why-calmflex">Why CalmFlex</NavLink>
+          <NavLink to="/account">My orders</NavLink>
+          {user?.role === 'admin' && <NavLink to="/admin">Order desk</NavLink>}
           <NavLink to="/cart">Cart</NavLink>
           <NavLink to="/login">Account</NavLink>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { apiUrl } from '../config/api';
 import { money } from '../data/products';
 import { useAuth } from '../context/AuthContext';
@@ -34,8 +34,20 @@ export default function AccountPage() {
       .finally(() => setLoadingOrders(false));
   }, [user]);
 
-  if (loading) return <main className="page-shell account-page"><p className="eyebrow">Your CalmFlex account</p><h1>Loading account…</h1></main>;
-  if (!user) return <Navigate to="/login" replace state={{ from: '/account' }} />;
+  if (loading) return <main className="page-shell account-page"><p className="eyebrow">Your CalmFlex account</p><h1>Loading account…</h1><p className="account-loading-note">Checking your secure session.</p></main>;
+  if (!user) {
+    return (
+      <main className="page-shell account-page account-signed-out">
+        <p className="eyebrow">Your CalmFlex account</p>
+        <h1>Your orders, together.</h1>
+        <p className="account-signed-out-copy">Sign in to review your orders, see delivery progress, and find tracking details.</p>
+        <div className="account-auth-actions">
+          <Link className="button button-dark" to="/login" state={{ from: '/account' }}>Log in <span>↗</span></Link>
+          <Link className="button button-outline" to="/signup" state={{ from: '/account' }}>Create account</Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="page-shell account-page">
